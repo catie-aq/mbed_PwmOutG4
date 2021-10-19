@@ -1,0 +1,23 @@
+{
+  "name": "PwmOutG4",
+  "version": "1.0.0",
+  "description": "PwmOutG4 to use HRTIM PWM on STM32G474VE",
+  "keywords": "PwmOut, STM32G4, STM32G474VET6, MBED, HRTIM",
+  "repository":
+  {
+    "type": "git",
+    "url": "https://gitlab.com/catie_6tron/pwmoutg4"
+  },
+  "authors":
+  [
+    {
+      "name": "Alban Chauvel",
+      "email": "a.chauvel@catie.fr",
+      "url": "https://www.catie.fr/",
+	  "maintainer": true
+    }
+  ],
+  "license": "Apache-2.0",
+  "frameworks": "mbed",
+  "platforms": "ststm32"
+}
