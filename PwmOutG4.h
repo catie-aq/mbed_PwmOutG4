@@ -11,7 +11,7 @@ class PwmOutG4 {
 
 public:
 
-    PwmOutG4(PinName pin, bool inverted=false);
+    PwmOutG4(PinName pin, bool inverted=false, bool rollover=false);
     ~PwmOutG4();
 
 
@@ -30,6 +30,7 @@ private:
 
     PinName _pin;
     bool _inverted;
+    bool _rollover;
     uint32_t _duty_cycle;
     uint32_t _period;
     uint32_t _hrtim_prescal;

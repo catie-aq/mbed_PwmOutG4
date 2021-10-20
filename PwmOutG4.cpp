@@ -8,9 +8,10 @@
 HRTIM_HandleTypeDef PwmOutG4::_hhrtim1;
 int PwmOutG4::_hrtim_initialized;
 
-PwmOutG4::PwmOutG4(PinName pin, bool inverted) :
+PwmOutG4::PwmOutG4(PinName pin, bool inverted, bool rollover) :
         _pin(pin),
         _inverted(inverted),
+        _rollover(rollover),
         _duty_cycle(0),
         _period(0x8000), //40khz by default
         _hrtim_prescal(HRTIM_PRESCALERRATIO_MUL8) //40khz by default
@@ -70,6 +71,10 @@ PwmOutG4::PwmOutG4(PinName pin, bool inverted) :
             }
     }
 
+    // Special case considering roll over activated.
+    if(_rollover)
+        _period = _period/2;
+
     initPWM();
 }
 
@@ -123,13 +128,27 @@ void PwmOutG4::setupPWMTimer() {
     if (HAL_HRTIM_TimeBaseConfig(&_hhrtim1, _tim_idx, &pTimeBaseCfg) != HAL_OK) {
         printf("Error while configuring HRTIM1 timebase.\n");
     }
-    pTimerCtl.UpDownMode = HRTIM_TIMERUPDOWNMODE_UP;
+
+    if(_rollover)
+        pTimerCtl.UpDownMode = HRTIM_TIMERUPDOWNMODE_UPDOWN;
+    else
+        pTimerCtl.UpDownMode = HRTIM_TIMERUPDOWNMODE_UP;
+
     pTimerCtl.GreaterCMP3 = HRTIM_TIMERGTCMP3_EQUAL;
     pTimerCtl.GreaterCMP1 = HRTIM_TIMERGTCMP1_EQUAL;
     pTimerCtl.DualChannelDacEnable = HRTIM_TIMER_DCDE_DISABLED;
     if (HAL_HRTIM_WaveformTimerControl(&_hhrtim1, _tim_idx, &pTimerCtl) != HAL_OK) {
         printf("Error while init HRTIM1 waveform.\n");
     }
+
+    if(_rollover){
+        if (HAL_HRTIM_RollOverModeConfig(&_hhrtim1, _tim_idx, HRTIM_TIM_FEROM_BOTH|HRTIM_TIM_BMROM_BOTH
+                                                                             |HRTIM_TIM_ADROM_CREST|HRTIM_TIM_OUTROM_BOTH
+                                                                             |HRTIM_TIM_ROM_BOTH) != HAL_OK) {
+            printf("Error while setting up rollover mode.\n");
+        }
+    }
+
     pTimerCfg.InterruptRequests = HRTIM_TIM_IT_NONE;
     pTimerCfg.DMARequests = HRTIM_TIM_DMA_NONE;
     pTimerCfg.DMASrcAddress = 0x0000;
@@ -140,10 +159,10 @@ void PwmOutG4::setupPWMTimer() {
     pTimerCfg.StartOnSync = HRTIM_SYNCSTART_DISABLED;
     pTimerCfg.ResetOnSync = HRTIM_SYNCRESET_DISABLED;
     pTimerCfg.DACSynchro = HRTIM_DACSYNC_NONE;
-    pTimerCfg.PreloadEnable = HRTIM_PRELOAD_ENABLED; // more clean
+    pTimerCfg.PreloadEnable = HRTIM_PRELOAD_ENABLED; // cleaner
     pTimerCfg.UpdateGating = HRTIM_UPDATEGATING_INDEPENDENT;
     pTimerCfg.BurstMode = HRTIM_TIMERBURSTMODE_MAINTAINCLOCK;
-    pTimerCfg.RepetitionUpdate = HRTIM_UPDATEONREPETITION_DISABLED; // ?
+    pTimerCfg.RepetitionUpdate = HRTIM_UPDATEONREPETITION_DISABLED; // Not necessary. See st cookbook.
     pTimerCfg.PushPull = HRTIM_TIMPUSHPULLMODE_DISABLED;
     pTimerCfg.FaultEnable = HRTIM_TIMFAULTENABLE_NONE;
     pTimerCfg.FaultLock = HRTIM_TIMFAULTLOCK_READWRITE;
@@ -151,8 +170,8 @@ void PwmOutG4::setupPWMTimer() {
     pTimerCfg.DelayedProtectionMode = HRTIM_TIMER_D_E_DELAYEDPROTECTION_DISABLED; // always 0 regarding the timer
     pTimerCfg.UpdateTrigger = HRTIM_TIMUPDATETRIGGER_NONE;
     pTimerCfg.ResetTrigger = HRTIM_TIMRESETTRIGGER_NONE;
-    pTimerCfg.ResetUpdate = HRTIM_TIMUPDATEONRESET_ENABLED; // Needed
-    pTimerCfg.ReSyncUpdate = HRTIM_TIMERESYNC_UPDATE_UNCONDITIONAL;
+    pTimerCfg.ResetUpdate = HRTIM_TIMUPDATEONRESET_ENABLED; // Needed to get the timer reboot at each cycle
+    pTimerCfg.ReSyncUpdate = HRTIM_TIMERESYNC_UPDATE_CONDITIONAL; // cleaner
     if (HAL_HRTIM_WaveformTimerConfig(&_hhrtim1, _tim_idx, &pTimerCfg) != HAL_OK) {
         printf("Error while configuring general HRTIM1 waveform.\n");
     }
@@ -173,7 +192,12 @@ void PwmOutG4::setupPWMOutput() {
         pOutputCfg.Polarity = HRTIM_OUTPUTPOLARITY_LOW;
     else
         pOutputCfg.Polarity = HRTIM_OUTPUTPOLARITY_HIGH;
-    pOutputCfg.SetSource = HRTIM_OUTPUTSET_TIMPER; // why mandatory ? beccause not needed on nimbl'bot
+
+    if(_rollover)
+        pOutputCfg.SetSource = HRTIM_OUTPUTSET_NONE;
+    else
+        pOutputCfg.SetSource = HRTIM_OUTPUTSET_TIMPER;
+
     pOutputCfg.ResetSource = _tim_cpr_reset;
     pOutputCfg.IdleMode = HRTIM_OUTPUTIDLEMODE_NONE;
     pOutputCfg.IdleLevel = HRTIM_OUTPUTIDLELEVEL_INACTIVE;
@@ -291,12 +315,6 @@ void PwmOutG4::syncWith(PwmOutG4 *other1, PwmOutG4 *other2) {
     if (HAL_HRTIM_SoftwareReset(&_hhrtim1, (_tim_reset + other1->_tim_reset + other2->_tim_reset)) != HAL_OK) {
         printf("Error while resetting %lu, %lu and %lu timers count.\n", _tim_idx, other1->_tim_idx, other2->_tim_idx);
     }
-
-    // Alternative to reset counter manually :
-    // See https://www.st.com/resource/en/reference_manual/dm00093941-stm32f334xx-advanced-arm-based-32-bit-mcus-stmicroelectronics.pdf
-    // part "21.5.40 HRTIM Control Register 2 (HRTIM_CR2)"
-    //HRTIM1_COMMON->CR2 |= 0b00000000000000000001100000000000; // binary
-    //HRTIM1_COMMON->CR2 |= 0x00001800; // hex
 
     if (HAL_HRTIM_WaveformOutputStart(&_hhrtim1, (_tim_output + other1->_tim_output + other2->_tim_output)) != HAL_OK) {
         printf("Error while starting %lu, %lu and %lu waveform output.\n", _tim_output, other1->_tim_output, other2->_tim_output);
