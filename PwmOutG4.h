@@ -5,6 +5,11 @@
 #ifndef PWMOUTG4_H
 #define PWMOUTG4_H
 
+#define NUM_TIM_MAX            6
+#define TIM_ROLLOVER_ENABLED   0x02
+#define TIM_ROLLOVER_DISABLED  0x01
+
+
 #include <mbed.h>
 
 class PwmOutG4 {
@@ -26,7 +31,9 @@ private:
 
     // Base HRTIM1 initialization : only one time
     static HRTIM_HandleTypeDef _hhrtim1;
-    static int _hrtim_initialized;
+    static bool _hrtim_initialized;
+    static uint8_t _tim_initialized[NUM_TIM_MAX];
+    static uint8_t _tim_general_state[NUM_TIM_MAX];
 
     PinName _pin;
     bool _inverted;

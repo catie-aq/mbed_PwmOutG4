@@ -6,15 +6,17 @@
 
 // Define static members
 HRTIM_HandleTypeDef PwmOutG4::_hhrtim1;
-int PwmOutG4::_hrtim_initialized;
+bool PwmOutG4::_hrtim_initialized = false;// Static, so initialized only one time
+uint8_t PwmOutG4::_tim_initialized[NUM_TIM_MAX] = {0}; // Static, so initialized only one time
+uint8_t PwmOutG4::_tim_general_state[NUM_TIM_MAX] = {0}; // Static, so initialized only one time
 
 PwmOutG4::PwmOutG4(PinName pin, bool inverted, bool rollover) :
         _pin(pin),
         _inverted(inverted),
         _rollover(rollover),
         _duty_cycle(0),
-        _period(0x8000), //40khz by default
-        _hrtim_prescal(HRTIM_PRESCALERRATIO_MUL8) //40khz by default
+        _period(0x8000), //41.5khz by default (with sys clcok = 170Mhz)
+        _hrtim_prescal(HRTIM_PRESCALERRATIO_MUL8)
         {
 
     // Init specific registers regarding the PWMx_OUT for the STM32G474VET6
@@ -67,13 +69,27 @@ PwmOutG4::PwmOutG4(PinName pin, bool inverted, bool rollover) :
             break;
         default:
             while (true) {
-                error("Error : PwmOutG4 object must be initialized with a known pin. %d not recognized.", _pin);
+                error("ERROR PwmOutG4: object must be initialized with a known pin. Pin %d not recognized. See PwmOutG4.cpp for a list of known pins.", _pin);
             }
     }
 
+    if((_tim_general_state[_tim_idx] == TIM_ROLLOVER_ENABLED) && !_rollover){
+        printf("\nWarning PwmOutG4: Timer %lu has already been initialized with rollover mode. Pin %d must be initialized in rollover mode.\n",_tim_idx, _pin);
+        _rollover = true;
+    }
+
+    if((_tim_general_state[_tim_idx] == TIM_ROLLOVER_DISABLED) && _rollover){
+        printf("\nWarning PwmOutG4: Timer %lu has already been initialized in normal mode. Pin %d can't be initialized in rollover mode.\n",_tim_idx, _pin);
+        _rollover = false;
+    }
+
     // Special case considering roll over activated.
-    if(_rollover)
+    if(_rollover){
         _period = _period/2;
+        _tim_general_state[_tim_idx] = TIM_ROLLOVER_ENABLED;
+    } else {
+        _tim_general_state[_tim_idx] = TIM_ROLLOVER_DISABLED;
+    }
 
     initPWM();
 }
@@ -84,12 +100,19 @@ PwmOutG4::~PwmOutG4() {
 
 void PwmOutG4::initPWM() {
 
-    if (_hrtim_initialized == 0) {
+    if (!_hrtim_initialized) {
         setupHRTIM1();
-        _hrtim_initialized = 1; // To be initialized only one time.
+        _hrtim_initialized = true; // To be initialized only one time.
     }
 
-    setupPWMTimer();
+    if(_tim_initialized[_tim_idx] != 0){
+        printf("\nWarning PwmOutG4: Timer %lu has already been initialized by pin %d, and can't be setup again,\n",_tim_idx, _tim_initialized[_tim_idx]);
+        printf("Warning PwmOutG4: so pin %d will share same frequency/period, prescaler, and HRTIM mode as pin %d.\n",_pin, _tim_initialized[_tim_idx]);
+    } else {
+        setupPWMTimer();
+        _tim_initialized[_tim_idx] = _pin;
+    }
+
     setupPWMOutput();
     setupGPIO();
 //    startPWM(); // NE PAS START ICI, sinon 2 sorties d'un même timer ne seront pas correct si l'une des 2 est inversée (genre PB14 et PB15)
