@@ -9,14 +9,13 @@ HRTIM_HandleTypeDef PwmOutG4::_hhrtim1;
 bool PwmOutG4::_hrtim_initialized = false;// Static, so initialized only one time
 uint8_t PwmOutG4::_tim_initialized[NUM_TIM_MAX] = {0}; // Static, so initialized only one time
 uint8_t PwmOutG4::_tim_general_state[NUM_TIM_MAX] = {0}; // Static, so initialized only one time
+uint32_t PwmOutG4::_min_frequ_ckpsc[8] = {0};
 
 PwmOutG4::PwmOutG4(PinName pin, bool inverted, bool rollover) :
         _pin(pin),
         _inverted(inverted),
         _rollover(rollover),
-        _duty_cycle(0),
-        _period(0x8000), //41.5khz by default (with sys clcok = 170Mhz)
-        _hrtim_prescal(HRTIM_PRESCALERRATIO_MUL8)
+        _frequency(42000) //42kHz by default
         {
 
     // Init specific registers regarding the PWMx_OUT for the STM32G474VET6
@@ -85,7 +84,6 @@ PwmOutG4::PwmOutG4(PinName pin, bool inverted, bool rollover) :
 
     // Special case considering roll over activated.
     if(_rollover){
-        _period = _period/2;
         _tim_general_state[_tim_idx] = TIM_ROLLOVER_ENABLED;
     } else {
         _tim_general_state[_tim_idx] = TIM_ROLLOVER_DISABLED;
@@ -100,11 +98,16 @@ PwmOutG4::~PwmOutG4() {
 
 void PwmOutG4::initPWM() {
 
+    // First, setup the HRTIM (master of all HRTIM timers)
     if (!_hrtim_initialized) {
         setupHRTIM1();
         _hrtim_initialized = true; // To be initialized only one time.
     }
 
+    // then, setup period, prescaler, pwm min/max following the request frequency
+    setupFrequency();
+
+    // then setup timer if needed
     if(_tim_initialized[_tim_idx] != 0){
         printf("\nWarning PwmOutG4: Timer %lu has already been initialized by pin %d, and can't be setup again,\n",_tim_idx, _tim_initialized[_tim_idx]);
         printf("Warning PwmOutG4: so pin %d will share same frequency/period, prescaler, and HRTIM mode as pin %d.\n",_pin, _tim_initialized[_tim_idx]);
@@ -113,10 +116,88 @@ void PwmOutG4::initPWM() {
         _tim_initialized[_tim_idx] = _pin;
     }
 
+    // Then init the PWM output
     setupPWMOutput();
     setupGPIO();
 //    startPWM(); // NE PAS START ICI, sinon 2 sorties d'un même timer ne seront pas correct si l'une des 2 est inversée (genre PB14 et PB15)
 
+}
+
+void PwmOutG4::setupFrequency() {
+
+    // Just in case ...
+    if(_frequency > SystemCoreClock)
+        _frequency = SystemCoreClock;
+
+    // See table 213 of STM32G4 reference manual.
+    if(_frequency > _min_frequ_ckpsc[HRTIM_PRESCALERRATIO_MUL32]) { // CKPSC = 0, resolution = 184ps
+        _hrtim_prescal = HRTIM_PRESCALERRATIO_MUL32;
+    } else if (_frequency >= _min_frequ_ckpsc[HRTIM_PRESCALERRATIO_MUL16]) { // CKPSC = 1, resolution = 368ps at 170Mhz
+        _hrtim_prescal = HRTIM_PRESCALERRATIO_MUL16;
+    } else if (_frequency >= _min_frequ_ckpsc[HRTIM_PRESCALERRATIO_MUL8]) { // CKPSC = 2, resolution = 735ps at 170Mhz
+        _hrtim_prescal = HRTIM_PRESCALERRATIO_MUL8;
+    } else if (_frequency >= _min_frequ_ckpsc[HRTIM_PRESCALERRATIO_MUL4]) { // CKPSC = 3, resolution = 1.47ns at 170Mhz
+        _hrtim_prescal = HRTIM_PRESCALERRATIO_MUL4;
+    } else if (_frequency >= _min_frequ_ckpsc[HRTIM_PRESCALERRATIO_MUL2]) { // CKPSC = 4, resolution = 2.94ns at 170Mhz
+        _hrtim_prescal = HRTIM_PRESCALERRATIO_MUL2;
+    } else if (_frequency >= _min_frequ_ckpsc[HRTIM_PRESCALERRATIO_DIV1]) { // CKPSC = 5, resolution = 5.88ns at 170Mhz
+        _hrtim_prescal = HRTIM_PRESCALERRATIO_DIV1;
+    } else if (_frequency >= _min_frequ_ckpsc[HRTIM_PRESCALERRATIO_DIV2]) { // CKPSC = 6, resolution = 11.76ns at 170Mhz
+        _hrtim_prescal = HRTIM_PRESCALERRATIO_DIV2;
+    } else if (_frequency >= _min_frequ_ckpsc[HRTIM_PRESCALERRATIO_DIV4]) { // CKPSC = 7, resolution = 23.53ns at 170Mhz
+        _hrtim_prescal = HRTIM_PRESCALERRATIO_DIV4;
+    } else {
+        error("PwmOutG4 ERROR: minimum frequency is %ldHz. Pin %d can't be initialized. Please use a normal Timer, or increase frequency to use HRTIM.\n", _min_frequ_ckpsc[HRTIM_PRESCALERRATIO_DIV4], _pin);
+    }
+
+
+    // Compute the right period
+    _period = (uint32_t) ((((float)0xFFFF / (float)_frequency) * (float)_min_frequ_ckpsc[_hrtim_prescal]));
+
+    // quick hack to check if another timer in rollover mode will have the same frequency, if not, then the period is not even.
+    if ((_period / 2)*2 != _period)
+        _period++; // make the _period even
+
+    if(_rollover){
+        _period = _period / 2;
+    }
+
+    // See table 214 of STM32G4 reference manual.
+    switch (_hrtim_prescal) {
+        case HRTIM_PRESCALERRATIO_MUL32:
+            _duty_cycle_min = 0x0060;
+            _duty_cycle_max = 0xFFDF;
+            break;
+        case HRTIM_PRESCALERRATIO_MUL16:
+            _duty_cycle_min = 0x0030;
+            _duty_cycle_max = 0xFFEF;
+            break;
+        case HRTIM_PRESCALERRATIO_MUL8:
+            _duty_cycle_min = 0x0018;
+            _duty_cycle_max = 0xFFF7;
+            break;
+        case HRTIM_PRESCALERRATIO_MUL4:
+            _duty_cycle_min = 0x000C;
+            _duty_cycle_max = 0xFFFB;
+            break;
+        case HRTIM_PRESCALERRATIO_MUL2:
+            _duty_cycle_min = 0x0006;
+            _duty_cycle_max = 0xFFFD;
+            break;
+        default:
+            _duty_cycle_min = 0x0003;
+            _duty_cycle_max = 0xFFFD;
+    }
+
+    // Be sure to not exceed the period of the timer
+    if(_duty_cycle_max > _period){
+
+        if(_rollover)
+            _duty_cycle_max = _period - ((_duty_cycle_min / 3)*2); //because of rollover, two period of fHRTIM instead of only one.
+        else
+            _duty_cycle_max = _period - (_duty_cycle_min / 3); //divide by 3 because _duty_cycle_min is 3x period of fHRTIM (see table 214).
+
+    }
 }
 
 void PwmOutG4::setupHRTIM1() {
@@ -136,6 +217,12 @@ void PwmOutG4::setupHRTIM1() {
     if (HAL_HRTIM_PollForDLLCalibration(&_hhrtim1, 10) != HAL_OK) {
         printf("Error while waiting for DLL calibration\n");
     }
+
+    // Compute the minimum PWF frequency for each prescaler, following the current system clock. See table 213 of STM32G4 reference manual.
+    for (int i=0 ; i<8 ; i++){
+        _min_frequ_ckpsc[i] = ((uint64_t)SystemCoreClock / 100) * (32 * 100 / ((uint32_t)pow(2,i))) / 0xFFFF;
+    }
+
 }
 
 void PwmOutG4::setupPWMTimer() {
@@ -296,7 +383,31 @@ void PwmOutG4::stopPWM() {
 
 
 void PwmOutG4::write(float pwm) {
-    _duty_cycle = uint32_t((float)_period * pwm);
+
+    // Input Security. Should be between 0.0f and 1.0f like MBED.
+    if (pwm > 1.0f)
+        _pwm = 1.0f;
+    else if (pwm < 0.0f)
+        _pwm = 0.0f;
+    else
+        _pwm = pwm;
+
+    // Duty cycle security. Consider MAX and MIN following the prescaler.
+    // See setupFrequency() function.
+    if (_pwm == 0.0f){
+        // Special case, HRTIM can do null duty cycle, even if it is below minimum.
+        _duty_cycle = 0x0000;
+    } else {
+        _duty_cycle = uint32_t((float)_period * _pwm);
+
+        // See setupFrequency() function for the min max.
+        if (_duty_cycle < _duty_cycle_min)
+            _duty_cycle = _duty_cycle_min;
+        else if (_duty_cycle > _duty_cycle_max)
+            _duty_cycle = _duty_cycle_max;
+    }
+
+    // Setup comparator using HAL, resulting in PWM output.
     __HAL_HRTIM_SetCompare(&_hhrtim1, _tim_idx, _tim_cpr_unit, _duty_cycle);
 }
 

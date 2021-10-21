@@ -35,12 +35,19 @@ private:
     static uint8_t _tim_initialized[NUM_TIM_MAX];
     static uint8_t _tim_general_state[NUM_TIM_MAX];
 
+    static uint32_t _min_frequ_ckpsc[8];
+
     PinName _pin;
     bool _inverted;
     bool _rollover;
+    uint32_t _frequency;
     uint32_t _duty_cycle;
     uint32_t _period;
     uint32_t _hrtim_prescal;
+
+    float _pwm;
+    uint32_t _duty_cycle_max;
+    uint32_t _duty_cycle_min;
 
     uint32_t _tim_idx;
     uint32_t _tim_reset;
@@ -53,6 +60,7 @@ private:
 
 
     void initPWM();
+    void setupFrequency();
     void setupHRTIM1();
     void setupPWMTimer();
     void setupPWMOutput();
