@@ -244,7 +244,7 @@ void PwmOutG4::setupPWMTimer() {
     else
         pTimerCtl.UpDownMode = HRTIM_TIMERUPDOWNMODE_UP;
 
-    pTimerCtl.GreaterCMP3 = HRTIM_TIMERGTCMP3_EQUAL;
+    pTimerCtl.GreaterCMP3 = HRTIM_TIMERGTCMP3_EQUAL; // always setup comparators 3 and 1 regarding the timer, just in case
     pTimerCtl.GreaterCMP1 = HRTIM_TIMERGTCMP1_EQUAL;
     pTimerCtl.DualChannelDacEnable = HRTIM_TIMER_DCDE_DISABLED;
     if (HAL_HRTIM_WaveformTimerControl(&_hhrtim1, _tim_idx, &pTimerCtl) != HAL_OK) {
@@ -277,10 +277,10 @@ void PwmOutG4::setupPWMTimer() {
     pTimerCfg.FaultEnable = HRTIM_TIMFAULTENABLE_NONE;
     pTimerCfg.FaultLock = HRTIM_TIMFAULTLOCK_READWRITE;
     pTimerCfg.DeadTimeInsertion = HRTIM_TIMDEADTIMEINSERTION_DISABLED;
-    pTimerCfg.DelayedProtectionMode = HRTIM_TIMER_D_E_DELAYEDPROTECTION_DISABLED; // always 0 regarding the timer
+    pTimerCfg.DelayedProtectionMode = HRTIM_TIMER_D_E_DELAYEDPROTECTION_DISABLED; // always 0 regarding the timer.
     pTimerCfg.UpdateTrigger = HRTIM_TIMUPDATETRIGGER_NONE;
     pTimerCfg.ResetTrigger = HRTIM_TIMRESETTRIGGER_NONE;
-    pTimerCfg.ResetUpdate = HRTIM_TIMUPDATEONRESET_ENABLED; // Needed to get the timer reboot at each cycle
+    pTimerCfg.ResetUpdate = HRTIM_TIMUPDATEONRESET_ENABLED; // Needed to get the timer reboot at each cycle.
     pTimerCfg.ReSyncUpdate = HRTIM_TIMERESYNC_UPDATE_CONDITIONAL; // cleaner
     if (HAL_HRTIM_WaveformTimerConfig(&_hhrtim1, _tim_idx, &pTimerCfg) != HAL_OK) {
         printf("Error while configuring general HRTIM1 waveform.\n");
