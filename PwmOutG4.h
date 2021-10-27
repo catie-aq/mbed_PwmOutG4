@@ -9,6 +9,7 @@
 #define TIM_ROLLOVER_ENABLED   0x02
 #define TIM_ROLLOVER_DISABLED  0x01
 
+#define DEFUALT_FREQUENCY   42000
 
 #include <mbed.h>
 
@@ -16,15 +17,18 @@ class PwmOutG4 {
 
 public:
 
-    PwmOutG4(PinName pin, bool inverted=false, bool rollover=false);
+    PwmOutG4(PinName pin, uint32_t frequency = 42000, bool inverted = false, bool rollover = false);
+
     ~PwmOutG4();
 
-
-    void startPWM(); // could be called "resume()" like PwmOut MBED object
-    void stopPWM();// could be called "suspend()" like PwmOut MBED object
+    void resume(); // like PwmOut MBED object, use as START here
+    void suspend();// like PwmOut MBED object, use as STOP here
 
     void write(float pwm);
+
+    // These functions does not relate from PwmOut MBED Object, and are specific to the use of HRTIM :
     void syncWith(PwmOutG4 *other);
+
     void syncWith(PwmOutG4 *other1, PwmOutG4 *other2);
 
 private:
@@ -55,15 +59,20 @@ private:
     uint32_t _tim_cpr_unit;
     uint32_t _tim_cpr_reset;
 
-    GPIO_TypeDef* _gpio_port;
+    GPIO_TypeDef *_gpio_port;
     uint32_t _gpio_pin;
 
 
     void initPWM();
+
     void setupFrequency();
+
     void setupHRTIM1();
+
     void setupPWMTimer();
+
     void setupPWMOutput();
+
     void setupGPIO();
 
 };
