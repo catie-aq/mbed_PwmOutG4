@@ -23,7 +23,7 @@
 #define TIM_ROLLOVER_ENABLED   0x02
 #define TIM_ROLLOVER_DISABLED  0x01
 
-#define DEFUALT_FREQUENCY   42000
+#define DEFAULT_FREQUENCY   42000
 
 #include <mbed.h>
 
@@ -44,7 +44,7 @@ public:
      *  \param inverted Inverted output (default = false)
      *  \param rollover Rollover mode, specific to the HRTIM, ideal to get proper AC triggered (default = false)
      */
-    PwmOutG4(PinName pin, uint32_t frequency = 42000, bool inverted = false, bool rollover = false);
+    PwmOutG4(PinName pin, uint32_t frequency = DEFAULT_FREQUENCY, bool inverted = false, bool rollover = false);
 
     ~PwmOutG4();
 

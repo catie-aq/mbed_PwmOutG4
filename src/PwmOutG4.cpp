@@ -74,7 +74,7 @@ PwmOutG4::PwmOutG4(PinName pin, uint32_t frequency, bool inverted, bool rollover
             break;
         case DIO8: // PC7 (secondary option for PWM4 on ZEST_ACTUATOR_HALFBRIDGES)
             _tim_idx = HRTIM_TIMERINDEX_TIMER_F;
-            _tim_reset = HRTIM_TIMERRESET_TIMER_F;
+            _tim_reset = HRTIM_TIMERRESET_TIMER_F; // ATTENTION : même timer que PWM3_OUT. les sorties doivent etre configurées AVANT d'allumer les 2, sinon le "_inverted" ne sera pas pris en compte par la HAL.
             _tim_output = HRTIM_OUTPUT_TF2;
             _tim_cpr_unit = HRTIM_COMPAREUNIT_2;
             _tim_cpr_reset = HRTIM_OUTPUTRESET_TIMCMP2;
@@ -141,7 +141,7 @@ void PwmOutG4::initPWM() {
     // Then init the PWM output
     setupPWMOutput();
     setupGPIO();
-//    startPWM(); // NE PAS START ICI, sinon 2 sorties d'un même timer ne seront pas correct si l'une des 2 est inversée (genre PB14 et PB15)
+//    resume(); // NE PAS START ICI, sinon 2 sorties d'un même timer ne seront pas correct si l'une des 2 est inversée (genre PB14 et PB15). À faire dans le main.cpp quand tout est initialisé.
 
 }
 
@@ -392,11 +392,6 @@ void PwmOutG4::resume() {
     if (HAL_HRTIM_WaveformOutputStart(&_hhrtim1, _tim_output) != HAL_OK) {
         printf("Error while starting %lu waveform output.\n", _tim_output);
     }
-
-//    // Start HRTIM's TIMER (DOES NOT SEEM NECESSARY WHEN waveformOutputStart IS ALREADY EXECUTE)
-//    if (HAL_HRTIM_WaveformCounterStart(&_hhrtim1, _tim_idx) != HAL_OK) {
-//        printf("Error while starting %lu waveform counter\n", _tim_output);
-//    }
 }
 
 void PwmOutG4::suspend() {
