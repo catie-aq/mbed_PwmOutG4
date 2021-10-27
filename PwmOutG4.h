@@ -1,6 +1,20 @@
-//
-// Created by achauvel on 10/02/2021.
-//
+/*
+ * Copyright (c) 2017, CATIE, All Rights Reserved
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+ * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 
 #ifndef PWMOUTG4_H
 #define PWMOUTG4_H
@@ -13,10 +27,23 @@
 
 #include <mbed.h>
 
+
+/*!
+ *  \class PwmOutG4
+ *  High-resolution Timers STM32 Driver
+ */
 class PwmOutG4 {
 
 public:
 
+    /*!
+     *  Default PwmOutG4 contructor
+     *
+     *  \param pin Pin for the Pwm Output
+     *  \param frequency Frequency in Hz of the PWM (defualt = 42000Hz)
+     *  \param inverted Inverted output (default = false)
+     *  \param rollover Rollover mode, specific to the HRTIM, ideal to get proper AC triggered (default = false)
+     */
     PwmOutG4(PinName pin, uint32_t frequency = 42000, bool inverted = false, bool rollover = false);
 
     ~PwmOutG4();
