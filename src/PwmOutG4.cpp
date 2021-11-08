@@ -34,6 +34,7 @@ PwmOutG4::PwmOutG4(PinName pin, uint32_t frequency, bool inverted, bool rollover
 {
 
     // Init specific registers regarding the PWMx_OUT for the STM32G474VET6
+    // TODO: Get parameters automatically for request pin ? could it be possible ?
     switch (_pin) {
 
         case PWM1_OUT: // PB12
@@ -141,7 +142,7 @@ void PwmOutG4::initPWM() {
     // Then init the PWM output
     setupPWMOutput();
     setupGPIO();
-//    resume(); // NE PAS START ICI, sinon 2 sorties d'un même timer ne seront pas correct si l'une des 2 est inversée (genre PB14 et PB15). À faire dans le main.cpp quand tout est initialisé.
+//    resume(); NE PAS START ICI, sinon 2 sorties d'un même timer ne seront pas correct si l'une des 2 est inversée (genre PB14 et PB15). À faire dans le main.cpp quand tout est initialisé.
 
 }
 
@@ -347,14 +348,23 @@ void PwmOutG4::setupPWMOutput() {
 
 void PwmOutG4::setupGPIO() {
 
-
     // init gpio struct
     GPIO_InitTypeDef GPIO_InitStruct;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
-    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
     GPIO_InitStruct.Alternate = GPIO_AF13_HRTIM1;
 
+    // Setup the right speed corresponding to the Frequency.
+    // This will improve signal quality (because higher frequency = higher speed = higher EMI noise due to higher switching current peak)
+    if (_frequency < 5000000) { // <5 MhZ
+        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    } else if (_frequency < 25000000) { // between 5Mhz and 25MhZ
+        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
+    } else if (_frequency < 50000000) { // between 25Mhz and 50MhZ
+        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+    } else { // more than 50Mhz
+        GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+    }
 
     // can't use switch case, because gpio port is a type def structure
     if (_gpio_port == GPIOA)
