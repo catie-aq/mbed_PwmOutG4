@@ -3,6 +3,8 @@ PwmOutG4 library for Mbed OS. Generate PWM using High Resolution Timers from STM
 
 This library tried to be compatible with PwmOut objects from MBED-OS.
 
+To get proper ADC reading using HRTIM, please use AnalogInG4 library.
+
 ## Requirements
 ### Hardware requirements
 The following boards are required:

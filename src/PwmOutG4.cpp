@@ -158,7 +158,7 @@ void PwmOutG4::initPWM() {
     // Then init the PWM output
     setupPWMOutput();
     setupGPIO();
-//    resume(); NE PAS START ICI, sinon 2 sorties d'un même timer ne seront pas correct si l'une des 2 est inversée (genre PB14 et PB15). À faire dans le main.cpp quand tout est initialisé.
+//    resume(); NE PAS START ICI, sinon 2 sorties d'un même timer ne seront pas correct si l'une des 2 est inversée (ex. PB14 et PB15). À faire dans le main.cpp quand tout est initialisé.
 
 }
 
@@ -264,15 +264,6 @@ void PwmOutG4::setupHRTIM1() {
     for (int i = 0; i < 8; i++) {
         _min_frequ_ckpsc[i] = ((uint64_t) SystemCoreClock / 100) * (32 * 100 / ((uint32_t) pow(2, i))) / 0xFFFF;
     }
-
-    // DMA controller clock enable
-    __HAL_RCC_DMAMUX1_CLK_ENABLE();
-    __HAL_RCC_DMA1_CLK_ENABLE();
-
-    // DMA interrupt init, used by ADC
-    // DMA1_Channel1_IRQn interrupt configuration
-    HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
-    HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
 
 }
 
