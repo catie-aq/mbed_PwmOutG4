@@ -20,7 +20,7 @@
 
 // Define static members, initialized only one time
 HRTIM_HandleTypeDef PwmOutG4::_hhrtim1;
-bool PwmOutG4::_hrtim_initialized = false;
+bool PwmOutG4::_hrtim_initialized = false, PwmOutG4::_adctriggered_initialized = false;
 uint8_t PwmOutG4::_tim_initialized[NUM_TIM_MAX] = {0};
 uint8_t PwmOutG4::_tim_general_state[NUM_TIM_MAX] = {0};
 uint32_t PwmOutG4::_min_frequ_ckpsc[8] = {0};
@@ -45,6 +45,8 @@ PwmOutG4::PwmOutG4(PinName pin, uint32_t frequency, bool inverted, bool rollover
             _tim_cpr_reset = HRTIM_OUTPUTRESET_TIMCMP1;
             _gpio_port = GPIOB;
             _gpio_pin = GPIO_PIN_12;
+            _adc_update_src = HRTIM_ADCTRIGGERUPDATE_TIMER_C;
+            _adc_trig = HRTIM_ADCTRIGGEREVENT13_TIMERC_PERIOD;
             break;
         case PWM2_OUT: // PB14
             _tim_idx = HRTIM_TIMERINDEX_TIMER_D;
@@ -54,6 +56,8 @@ PwmOutG4::PwmOutG4(PinName pin, uint32_t frequency, bool inverted, bool rollover
             _tim_cpr_reset = HRTIM_OUTPUTRESET_TIMCMP1;
             _gpio_port = GPIOB;
             _gpio_pin = GPIO_PIN_14;
+            _adc_update_src = HRTIM_ADCTRIGGERUPDATE_TIMER_D;
+            _adc_trig = HRTIM_ADCTRIGGEREVENT13_TIMERD_PERIOD;
             break;
         case PWM3_OUT: // PC6
             _tim_idx = HRTIM_TIMERINDEX_TIMER_F;
@@ -63,6 +67,8 @@ PwmOutG4::PwmOutG4(PinName pin, uint32_t frequency, bool inverted, bool rollover
             _tim_cpr_reset = HRTIM_OUTPUTRESET_TIMCMP1;
             _gpio_port = GPIOC;
             _gpio_pin = GPIO_PIN_6;
+            _adc_update_src = HRTIM_ADCTRIGGERUPDATE_TIMER_F;
+            _adc_trig = HRTIM_ADCTRIGGEREVENT13_TIMERF_PERIOD;
             break;
         case DIO7: // PB15 (default option for PWM4 on ZEST_ACTUATOR_HALFBRIDGES)
             _tim_idx = HRTIM_TIMERINDEX_TIMER_D;
@@ -72,6 +78,8 @@ PwmOutG4::PwmOutG4(PinName pin, uint32_t frequency, bool inverted, bool rollover
             _tim_cpr_reset = HRTIM_OUTPUTRESET_TIMCMP3;
             _gpio_port = GPIOB;
             _gpio_pin = GPIO_PIN_15;
+            _adc_update_src = HRTIM_ADCTRIGGERUPDATE_TIMER_D;
+            _adc_trig = HRTIM_ADCTRIGGEREVENT13_TIMERD_PERIOD;
             break;
         case DIO8: // PC7 (secondary option for PWM4 on ZEST_ACTUATOR_HALFBRIDGES)
             _tim_idx = HRTIM_TIMERINDEX_TIMER_F;
@@ -81,6 +89,8 @@ PwmOutG4::PwmOutG4(PinName pin, uint32_t frequency, bool inverted, bool rollover
             _tim_cpr_reset = HRTIM_OUTPUTRESET_TIMCMP2;
             _gpio_port = GPIOC;
             _gpio_pin = GPIO_PIN_7;
+            _adc_update_src = HRTIM_ADCTRIGGERUPDATE_TIMER_F;
+            _adc_trig = HRTIM_ADCTRIGGEREVENT13_TIMERF_PERIOD;
             break;
         default:
             while (true) {
@@ -123,12 +133,18 @@ void PwmOutG4::initPWM() {
         _hrtim_initialized = true; // To be initialized only one time.
     }
 
+    // Then, setup the master ADC triggered (first one to be called will be the master)
+    if (!_adctriggered_initialized) {
+        setupAdcTrig();
+        _adctriggered_initialized = true; // To be initialized only one time.
+    }
+
     // then, setup period, prescaler, pwm min/max following the request frequency
     setupFrequency();
 
     // then setup timer if needed
     if (_tim_initialized[_tim_idx] != 0) {
-        printf("\nWarning PwmOutG4: Timer %lu has already been initialized by pin %d, and can't be setup again,\n",
+        printf("\nWarning PwmOutG4: Timer %lu has already been initialized by pin %d, and can't be setup again.\n",
                _tim_idx,
                _tim_initialized[_tim_idx]);
         printf("Warning PwmOutG4: so pin %d will share same frequency/period, prescaler, and HRTIM mode as pin %d.\n",
@@ -241,7 +257,7 @@ void PwmOutG4::setupHRTIM1() {
         printf("Error while calibrating HRTIM1 DLL.\n");
     }
     if (HAL_HRTIM_PollForDLLCalibration(&_hhrtim1, 10) != HAL_OK) {
-        printf("Error while waiting for DLL calibration\n");
+        printf("Error while waiting for DLL calibration.\n");
     }
 
     // Compute the minimum PWF frequency for each prescaler, following the current system clock. See table 213 of STM32G4 reference manual.
@@ -249,6 +265,32 @@ void PwmOutG4::setupHRTIM1() {
         _min_frequ_ckpsc[i] = ((uint64_t) SystemCoreClock / 100) * (32 * 100 / ((uint32_t) pow(2, i))) / 0xFFFF;
     }
 
+    // DMA controller clock enable
+    __HAL_RCC_DMAMUX1_CLK_ENABLE();
+    __HAL_RCC_DMA1_CLK_ENABLE();
+
+    // DMA interrupt init, used by ADC
+    // DMA1_Channel1_IRQn interrupt configuration
+    HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
+
+}
+
+void PwmOutG4::setupAdcTrig() {
+
+    HRTIM_ADCTriggerCfgTypeDef pADCTriggerCfg = {0};
+
+    pADCTriggerCfg.UpdateSource = _adc_update_src;
+    pADCTriggerCfg.Trigger = _adc_trig;
+    if (HAL_HRTIM_ADCTriggerConfig(&_hhrtim1, HRTIM_ADCTRIGGER_1, &pADCTriggerCfg) != HAL_OK)
+    {
+        printf("Error while setting master ADC Triggered.\n");
+    }
+    // TODO: compute the right postscaler according to frequency to get 1kHz of ADC trig
+    if (HAL_HRTIM_ADCPostScalerConfig(&_hhrtim1, HRTIM_ADCTRIGGER_1, ADC_TRIG_POSTSCALER) != HAL_OK)
+    {
+        printf("Error while waiting ADC trig postscaler.\n");
+    }
 }
 
 void PwmOutG4::setupPWMTimer() {
@@ -303,7 +345,7 @@ void PwmOutG4::setupPWMTimer() {
     pTimerCfg.FaultEnable = HRTIM_TIMFAULTENABLE_NONE;
     pTimerCfg.FaultLock = HRTIM_TIMFAULTLOCK_READWRITE;
     pTimerCfg.DeadTimeInsertion = HRTIM_TIMDEADTIMEINSERTION_DISABLED;
-    pTimerCfg.DelayedProtectionMode = HRTIM_TIMER_D_E_DELAYEDPROTECTION_DISABLED; // always 0 regarding the timer.
+    pTimerCfg.DelayedProtectionMode = 0x00000000U; // always 0 regarding the timer.
     pTimerCfg.UpdateTrigger = HRTIM_TIMUPDATETRIGGER_NONE;
     pTimerCfg.ResetTrigger = HRTIM_TIMRESETTRIGGER_NONE;
     pTimerCfg.ResetUpdate = HRTIM_TIMUPDATEONRESET_ENABLED; // Needed to get the timer reboot at each cycle.

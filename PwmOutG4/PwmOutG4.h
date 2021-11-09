@@ -25,6 +25,8 @@
 
 #define DEFAULT_FREQUENCY   42000
 
+#define ADC_TRIG_POSTSCALER 0x100
+
 #include <mbed.h>
 
 
@@ -63,6 +65,7 @@ private:
     // Base HRTIM1 initialization : only one time
     static HRTIM_HandleTypeDef _hhrtim1;
     static bool _hrtim_initialized;
+    static bool _adctriggered_initialized;
     static uint8_t _tim_initialized[NUM_TIM_MAX];
     static uint8_t _tim_general_state[NUM_TIM_MAX];
 
@@ -75,6 +78,9 @@ private:
     uint32_t _duty_cycle;
     uint32_t _period;
     uint32_t _hrtim_prescal;
+
+    uint32_t _adc_update_src;
+    uint32_t _adc_trig;
 
     float _pwm;
     uint32_t _duty_cycle_max;
@@ -95,6 +101,8 @@ private:
     void setupFrequency();
 
     void setupHRTIM1();
+
+    void setupAdcTrig();
 
     void setupPWMTimer();
 
