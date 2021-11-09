@@ -24,8 +24,9 @@
 #define TIM_ROLLOVER_DISABLED  0x01
 
 #define DEFAULT_FREQUENCY   42000
+#define DEFAULT_DEADTIME   0.00f
 
-#define ADC_TRIG_POSTSCALER 0x100
+#define ADC_TRIG_POSTSCALER 10
 
 #include <mbed.h>
 
@@ -46,7 +47,11 @@ public:
      *  \param inverted Inverted output (default = false)
      *  \param rollover Rollover mode, specific to the HRTIM, ideal to get proper AC triggered (default = false)
      */
-    PwmOutG4(PinName pin, uint32_t frequency = DEFAULT_FREQUENCY, bool inverted = false, bool rollover = false);
+    PwmOutG4(PinName pin,
+             uint32_t frequency = DEFAULT_FREQUENCY,
+             bool inverted = false,
+             bool rollover = false,
+             float deadtime = DEFAULT_DEADTIME);
 
     ~PwmOutG4();
 
@@ -83,6 +88,7 @@ private:
     uint32_t _adc_trig;
 
     float _pwm;
+    float _deadtime;
     uint32_t _duty_cycle_max;
     uint32_t _duty_cycle_min;
 

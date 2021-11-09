@@ -26,12 +26,12 @@ uint8_t PwmOutG4::_tim_general_state[NUM_TIM_MAX] = {0};
 uint32_t PwmOutG4::_min_frequ_ckpsc[8] = {0};
 
 
-PwmOutG4::PwmOutG4(PinName pin, uint32_t frequency, bool inverted, bool rollover) :
+PwmOutG4::PwmOutG4(PinName pin, uint32_t frequency, bool inverted, bool rollover, float deadtime) :
         _pin(pin),
         _inverted(inverted),
         _rollover(rollover),
-        _frequency(frequency) //42kHz by default
-{
+        _frequency(frequency),
+        _deadtime(deadtime) {
 
     // Init specific registers regarding the PWMx_OUT for the STM32G474VET6
     // TODO: Get parameters automatically for request pin ? could it be possible ?
@@ -273,13 +273,11 @@ void PwmOutG4::setupAdcTrig() {
 
     pADCTriggerCfg.UpdateSource = _adc_update_src;
     pADCTriggerCfg.Trigger = _adc_trig;
-    if (HAL_HRTIM_ADCTriggerConfig(&_hhrtim1, HRTIM_ADCTRIGGER_1, &pADCTriggerCfg) != HAL_OK)
-    {
+    if (HAL_HRTIM_ADCTriggerConfig(&_hhrtim1, HRTIM_ADCTRIGGER_1, &pADCTriggerCfg) != HAL_OK) {
         printf("Error while setting master ADC Triggered.\n");
     }
     // TODO: compute the right postscaler according to frequency to get 1kHz of ADC trig
-    if (HAL_HRTIM_ADCPostScalerConfig(&_hhrtim1, HRTIM_ADCTRIGGER_1, ADC_TRIG_POSTSCALER) != HAL_OK)
-    {
+    if (HAL_HRTIM_ADCPostScalerConfig(&_hhrtim1, HRTIM_ADCTRIGGER_1, ADC_TRIG_POSTSCALER) != HAL_OK) {
         printf("Error while waiting ADC trig postscaler.\n");
     }
 }
@@ -447,13 +445,19 @@ void PwmOutG4::suspend() {
 
 void PwmOutG4::write(float pwm) {
 
-    // Input Security. Should be between 0.0f and 1.0f like MBED.
-    if (pwm > 1.0f)
+    _pwm = pwm;
+
+    // First, apply Deadtime
+    if (_inverted)
+        _pwm = _pwm + _deadtime;
+    else
+        _pwm = _pwm - _deadtime;
+
+    // Then, input Security: Should be between 0.0f and 1.0f like MBED.
+    if (_pwm > 1.0f)
         _pwm = 1.0f;
     else if (pwm < 0.0f)
         _pwm = 0.0f;
-    else
-        _pwm = pwm;
 
     // Duty cycle security. Consider MAX and MIN following the prescaler.
     // See setupFrequency() function.
