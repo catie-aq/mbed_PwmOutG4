@@ -72,7 +72,7 @@ PwmOutG4::PwmOutG4(PinName pin, uint32_t frequency, bool inverted, bool rollover
             break;
         case DIO7: // PB15 (default option for PWM4 on ZEST_ACTUATOR_HALFBRIDGES)
             _tim_idx = HRTIM_TIMERINDEX_TIMER_D;
-            _tim_reset = HRTIM_TIMERRESET_TIMER_D; // ATTENTION : même timer que PW2_OUT. les sorties doivent etre configurées AVANT d'allumer les 2, sinon le "_inverted" ne sera pas pris en compte par la HAL.
+            _tim_reset = HRTIM_TIMERRESET_TIMER_D; // ATTENTION : même timer que PW2_OUT. Les sorties doivent etre configurées AVANT d'allumer les 2, sinon le "_inverted" ne sera pas pris en compte par la HAL.
             _tim_output = HRTIM_OUTPUT_TD2;
             _tim_cpr_unit = HRTIM_COMPAREUNIT_3;
             _tim_cpr_reset = HRTIM_OUTPUTRESET_TIMCMP3;
@@ -83,7 +83,7 @@ PwmOutG4::PwmOutG4(PinName pin, uint32_t frequency, bool inverted, bool rollover
             break;
         case DIO8: // PC7 (secondary option for PWM4 on ZEST_ACTUATOR_HALFBRIDGES)
             _tim_idx = HRTIM_TIMERINDEX_TIMER_F;
-            _tim_reset = HRTIM_TIMERRESET_TIMER_F; // ATTENTION : même timer que PWM3_OUT. les sorties doivent etre configurées AVANT d'allumer les 2, sinon le "_inverted" ne sera pas pris en compte par la HAL.
+            _tim_reset = HRTIM_TIMERRESET_TIMER_F; // ATTENTION : même timer que PWM3_OUT. Les sorties doivent etre configurées AVANT d'allumer les 2, sinon le "_inverted" ne sera pas pris en compte par la HAL.
             _tim_output = HRTIM_OUTPUT_TF2;
             _tim_cpr_unit = HRTIM_COMPAREUNIT_2;
             _tim_cpr_reset = HRTIM_OUTPUTRESET_TIMCMP2;

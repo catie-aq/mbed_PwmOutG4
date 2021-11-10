@@ -42,10 +42,14 @@ public:
     /*!
      *  Default PwmOutG4 contructor
      *
-     *  \param pin Pin for the Pwm Output
-     *  \param frequency Frequency in Hz of the PWM (defualt = 42000Hz)
-     *  \param inverted Inverted output (default = false)
-     *  \param rollover Rollover mode, specific to the HRTIM, ideal to get proper AC triggered (default = false)
+     *  @param pin Pin for the Pwm Output
+     *  @param frequency Frequency in Hz of the PWM (default = 42000Hz)
+     *  @param inverted Inverted output (default = false)
+     *  @param rollover Rollover mode, specific to the HRTIM, ideal to get proper AC triggered (default = false)
+     *  @param deadtime Add a deadtime. To be used when setting for example two complementary pwm.
+     *      Unit of deadtime is in percent of PWM, eg with 0.02f of deadtime, and two PWM:
+     *          - PWM 1 (non-inverted)  --> duty cycle will lose 2%
+     *          - PWM 2 (inverted)      --> duty cycle will gain 2%
      */
     PwmOutG4(PinName pin,
              uint32_t frequency = DEFAULT_FREQUENCY,
@@ -55,14 +59,32 @@ public:
 
     ~PwmOutG4();
 
-    void resume(); // like PwmOut MBED object, use as START here
-    void suspend();// like PwmOut MBED object, use as STOP here
+    /** Resume PWM operation
+     *
+     * In this case, this function will start PWM.
+     * THIS FUNCTION MUST BE CALLED AFTER CREATING ALL PwmOutG4 OBJECTS
+     *
+     */
+    void resume();
 
+    /** Suspend PWM operation
+     *
+     * In this case, this function will stop PWM
+     */
+    void suspend();
+
+    /** Set the output duty-cycle, specified as a percentage (float)
+     *
+     *  @param pwm A floating-point value representing the output duty-cycle,
+     *    specified as a percentage. The value should lie between
+     *    0.0f (representing on 0%) and 1.0f (representing on 100%).
+     *    Values outside this range will be saturated to 0.0f or 1.0f.
+     */
     void write(float pwm);
+
 
     // These functions does not relate from PwmOut MBED Object, and are specific to the use of HRTIM :
     void syncWith(PwmOutG4 *other);
-
     void syncWith(PwmOutG4 *other1, PwmOutG4 *other2);
 
 private:
