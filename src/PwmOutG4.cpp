@@ -92,6 +92,16 @@ PwmOutG4::PwmOutG4(PinName pin, uint32_t frequency, bool inverted, bool rollover
             _adc_update_src = HRTIM_ADCTRIGGERUPDATE_TIMER_F;
             _adc_trig = HRTIM_ADCTRIGGEREVENT13_TIMERF_PERIOD;
             break;
+        case DIO6: // PB13 (special pin for the hacked ZEST_ACTUATOR_HALFBRIDGES in MiniPock holonome) // HRTIM1CHC2
+            _tim_idx = HRTIM_TIMERINDEX_TIMER_C;
+            _tim_reset = HRTIM_TIMERRESET_TIMER_C;
+            _tim_output = HRTIM_OUTPUT_TC2;
+            _tim_cpr_unit = HRTIM_COMPAREUNIT_2;
+            _tim_cpr_reset = HRTIM_OUTPUTRESET_TIMCMP2;
+            _gpio_port = GPIOB;
+            _gpio_pin = GPIO_PIN_13;
+            _adc_update_src = HRTIM_ADCTRIGGERUPDATE_TIMER_C;
+            _adc_trig = HRTIM_ADCTRIGGEREVENT13_TIMERC_PERIOD;
         default:
             while (true) {
                 error("ERROR PwmOutG4: object must be initialized with a known pin. Pin %d not recognized. See PwmOutG4.cpp for a list of known pins.",
