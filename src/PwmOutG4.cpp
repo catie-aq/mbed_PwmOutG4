@@ -37,7 +37,7 @@ PwmOutG4::PwmOutG4(PinName pin, uint32_t frequency, bool inverted, bool rollover
     // TODO: Get parameters automatically for request pin ? could it be possible ?
     switch (_pin) {
 
-        case PWM1_OUT: // PB12
+        case PWM1_OUT: // PB12 // HRTIM1 C1
             _tim_idx = HRTIM_TIMERINDEX_TIMER_C;
             _tim_reset = HRTIM_TIMERRESET_TIMER_C;
             _tim_output = HRTIM_OUTPUT_TC1;
@@ -48,7 +48,7 @@ PwmOutG4::PwmOutG4(PinName pin, uint32_t frequency, bool inverted, bool rollover
             _adc_update_src = HRTIM_ADCTRIGGERUPDATE_TIMER_C;
             _adc_trig = HRTIM_ADCTRIGGEREVENT13_TIMERC_PERIOD;
             break;
-        case PWM2_OUT: // PB14
+        case PWM2_OUT: // PB14 // HRTIM1 D1
             _tim_idx = HRTIM_TIMERINDEX_TIMER_D;
             _tim_reset = HRTIM_TIMERRESET_TIMER_D;
             _tim_output = HRTIM_OUTPUT_TD1;
@@ -59,7 +59,7 @@ PwmOutG4::PwmOutG4(PinName pin, uint32_t frequency, bool inverted, bool rollover
             _adc_update_src = HRTIM_ADCTRIGGERUPDATE_TIMER_D;
             _adc_trig = HRTIM_ADCTRIGGEREVENT13_TIMERD_PERIOD;
             break;
-        case PWM3_OUT: // PC6
+        case PWM3_OUT: // PC6 // HRTIM1 F1
             _tim_idx = HRTIM_TIMERINDEX_TIMER_F;
             _tim_reset = HRTIM_TIMERRESET_TIMER_F;
             _tim_output = HRTIM_OUTPUT_TF1;
@@ -70,7 +70,7 @@ PwmOutG4::PwmOutG4(PinName pin, uint32_t frequency, bool inverted, bool rollover
             _adc_update_src = HRTIM_ADCTRIGGERUPDATE_TIMER_F;
             _adc_trig = HRTIM_ADCTRIGGEREVENT13_TIMERF_PERIOD;
             break;
-        case DIO7: // PB15 (default option for PWM4 on ZEST_ACTUATOR_HALFBRIDGES)
+        case DIO7: // PB15 (default option for PWM4 on ZEST_ACTUATOR_HALFBRIDGES) // HRTIM1 D2
             _tim_idx = HRTIM_TIMERINDEX_TIMER_D;
             _tim_reset = HRTIM_TIMERRESET_TIMER_D; // ATTENTION : même timer que PW2_OUT. Les sorties doivent etre configurées AVANT d'allumer les 2, sinon le "_inverted" ne sera pas pris en compte par la HAL.
             _tim_output = HRTIM_OUTPUT_TD2;
@@ -81,7 +81,7 @@ PwmOutG4::PwmOutG4(PinName pin, uint32_t frequency, bool inverted, bool rollover
             _adc_update_src = HRTIM_ADCTRIGGERUPDATE_TIMER_D;
             _adc_trig = HRTIM_ADCTRIGGEREVENT13_TIMERD_PERIOD;
             break;
-        case DIO8: // PC7 (secondary option for PWM4 on ZEST_ACTUATOR_HALFBRIDGES)
+        case DIO8: // PC7 (secondary option for PWM4 on ZEST_ACTUATOR_HALFBRIDGES) // HRTIM1 F2
             _tim_idx = HRTIM_TIMERINDEX_TIMER_F;
             _tim_reset = HRTIM_TIMERRESET_TIMER_F; // ATTENTION : même timer que PWM3_OUT. Les sorties doivent etre configurées AVANT d'allumer les 2, sinon le "_inverted" ne sera pas pris en compte par la HAL.
             _tim_output = HRTIM_OUTPUT_TF2;
@@ -92,16 +92,17 @@ PwmOutG4::PwmOutG4(PinName pin, uint32_t frequency, bool inverted, bool rollover
             _adc_update_src = HRTIM_ADCTRIGGERUPDATE_TIMER_F;
             _adc_trig = HRTIM_ADCTRIGGEREVENT13_TIMERF_PERIOD;
             break;
-        case DIO6: // PB13 (special pin for the hacked ZEST_ACTUATOR_HALFBRIDGES in MiniPock holonome) // HRTIM1CHC2
+        case DIO6: // PB13 (special pin for the hacked ZEST_ACTUATOR_HALFBRIDGES in MiniPock holonome) // HRTIM1 C2
             _tim_idx = HRTIM_TIMERINDEX_TIMER_C;
             _tim_reset = HRTIM_TIMERRESET_TIMER_C;
             _tim_output = HRTIM_OUTPUT_TC2;
-            _tim_cpr_unit = HRTIM_COMPAREUNIT_2;
-            _tim_cpr_reset = HRTIM_OUTPUTRESET_TIMCMP2;
+            _tim_cpr_unit = HRTIM_COMPAREUNIT_3;
+            _tim_cpr_reset = HRTIM_OUTPUTRESET_TIMCMP3;
             _gpio_port = GPIOB;
             _gpio_pin = GPIO_PIN_13;
             _adc_update_src = HRTIM_ADCTRIGGERUPDATE_TIMER_C;
             _adc_trig = HRTIM_ADCTRIGGEREVENT13_TIMERC_PERIOD;
+             break;
         default:
             while (true) {
                 error("ERROR PwmOutG4: object must be initialized with a known pin. Pin %d not recognized. See PwmOutG4.cpp for a list of known pins.",
